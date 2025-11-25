@@ -122,10 +122,11 @@
       }
     ];
 
-    // Ensure every event has an explicit .image property (local per-type fallback)
+    // Assign a real photo per event if available (assets/img/event-<id>.jpg)
+    // This overrides earlier per-type icons so each event uses a unique picture.
     ITINERARY_DATA.forEach(day => {
       day.events.forEach(ev => {
-        if (!ev.image) ev.image = `./assets/img/${(ev.type || 'default').toLowerCase()}.svg`;
+        ev.image = `./assets/img/event-${ev.id}.jpg`;
       });
     });
 
