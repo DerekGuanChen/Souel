@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Seoul Birthday Trip — 行程表 (Mobile Friendly)</title>
+
+    <!-- Tailwind Play CDN (快速原型用) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React & ReactDOM (UMD) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+    <!-- Babel (在瀏覽器編譯 JSX，開發/示範用) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      /* 小幅 style 調整讓手機瀏覽更友善 */
+      html, body, #root {
+        height: 100%;
+        background: #FAFAFA;
+      }
+      /* 隱藏滾動條 */
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      /* 向上淡入動畫 */
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translate3d(0, 15px, 0); }
+        to { opacity: 1; transform: translate3d(0, 0, 0); }
+      }
+      .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(.16,1,.3,1) both; }
+      /* 讓底部按鈕區在 iOS Safari 時不被 home indicator 遮擋 */
+      .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+  </head>
+  <body>
+    <div id="root" class="h-full"></div>
+
+    <!-- App code (JSX) -->
+    <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ---------- 小圖示：為了瀏覽器直接使用，改用 Emoji（輕量、跨平台） ----------
+    const Icon = ({ emoji, size = 18, className = "" }) => (
+      <span className={className} style={{ fontSize: size, lineHeight: 1 }}>{emoji}</span>
+    );
+
+    // ---------- 行程資料（保留你原始內容） ----------
+    const ITINERARY_DATA = [
+      {
+        day: 1,
+        date: "1月9日 (五)",
+        location: "首爾 • 江南/首爾站",
+        events: [
+          { id: 101, time: "10:00", type: "transport", title: "抵達仁川機場 T1", koreanName: "인천국제공항", desc: "桃園T2 -> 仁川T1 (CI160)。辦理入境手續。", meta: { from: "桃園T2", to: "仁川T1" }, tips: ["已預約 CI160 航班"] },
+          { id: 102, time: "14:00", type: "transport", title: "機場移動 -> 江南 (高速巴士客運站)", desc: "機場快線(A10)至金浦機場(A05)轉 9號線(902)至高速巴士客運站(923) 8號出口。", meta: { from: "仁川機場", to: "고속터미널역 8번 출구" }, tips: ["TMONEY 可用 Apple Pay 購買", "車程約 1.5 小時"] },
+          { id: 103, time: "15:30", type: "shopping", title: "新世界百貨 江南店", koreanName: "신세계백화점 강남점", address: "신세계백화점 강남점", tags: [{ text: "攻略：從 8F 開始逛", style: "info" }, { text: "必辦：2F 會員卡 (9折, 飲料)", style: "highlight" }], shoppingItems: ["2F: GOYARD", "4F: UGG"], desc: "高速巴士客運站8號出口直結。記得先到2樓辦會員卡(護照)，享9折與免費飲料。營業時間：10:30-20:00，週一公休。" },
+          { id: 104, time: "18:00", type: "food", title: "火泥 (韓式料理)", koreanName: "화니", address: "신세계백화점 강남점 11F", tags: [{ text: "百貨 11F", style: "info" }], desc: "位於百貨樓上的精緻韓式料理，環境舒適。營業時間：11:00–21:00。" },
+          { id: 105, time: "18:30", type: "transport", title: "移動至飯店 (市廳站)", desc: "9號線-高速巴士客運站(923) -> 鷺梁津(917/136)轉1號線 -> 市廳站(132)。", meta: { from: "고속터미널역", to: "시청역 7번 출구" } },
+          { id: 106, time: "19:00", type: "stay", title: "Check-in: 相鐵喜普勒集飯店", koreanName: "소테츠호텔즈 더 스프라지르 서울 명동", address: "소테츠호텔즈 더 스프라지르 서울 명동", tags: [{ text: "已預約", style: "highlight" }], desc: "市廳站7號出口，步行約8分鐘。15:00後可CHECK IN。" },
+          { id: 107, time: "20:00", type: "transport", title: "移動至首爾站 (晚餐/購物)", desc: "1號線-市廳站(132) > 首爾站(131) 3號出口。", meta: { from: "시청역", to: "서울역 3번 출구" } },
+          { id: 108, time: "20:30", type: "food", title: "晚餐選項：元祖脊骨湯或厚肉", koreanName: "24시 용산원조감자탕", tags: [{ text: "A. 元祖脊骨湯 (24H)", style: "info" }, { text: "B. 厚肉 (15:30-00:00)", style: "info" }], desc: "首爾站周邊晚餐備選，請選擇一家用餐。" },
+          { id: 109, time: "21:30", type: "shopping", title: "樂天超市採買 (首爾站店)", koreanName: "롯데마트 제타플렉스 서울역점", tags: [{ text: "營業至 00:00", style: "warning" }], shoppingItems: ["伴手禮", "零食", "泡麵"], desc: "採購伴手禮與零食。請注意超市的營業時間。" },
+          { id: 110, time: "23:30", type: "transport", title: "返回飯店", desc: "1號線-首爾站(131) > 市廳站(132) 7號出口。", meta: { from: "서울역", to: "시청역 7번 출구" } },
+          { id: 111, time: "00:00", type: "bar", title: "SOOEUL 酒吧小酌", koreanName: "수을", tags: [{ text: "營業至 01:30", style: "info" }], desc: "飯店附近酒吧，步行約 4 分鐘，適合睡前小酌。" },
+          { id: 112, time: "01:00", type: "stay", title: "入住飯店休息", koreanName: "소테츠호텔즈 더 스프라지르 서울 명동", desc: "結束第一天充實的行程。", tips: ["確保 01:30 前完成酒吧活動"] }
+        ]
+      },
+      {
+        day: 2,
+        date: "1月10日 (六)",
+        location: "首爾 • 鍾路/明洞",
+        events: [
+          { id: 201, time: "7:00", type: "transport", title: "前往安國站 (Artist Bakery)", desc: "1號線-市廳站(132) > 鍾路三街(130/327)轉3號線 > 安國站(328)1號出口。", meta: { from: "시청역", to: "안국역 1번 출구" }, tips: ["注意轉乘，安國站1號出口"] },
+          { id: 202, time: "7:30", type: "cafe", title: "Artist Bakery 早餐", koreanName: "Artist Bakery", address: "안국역 1번 출口旁", tags: [{ text: "必點: 伯爵茶鹽麵包", style: "highlight" }, { text: "必點: Fresh Milk Cream Salt Bread", style: "highlight" }, { text: "營業時間 7:30-20:00", style: "info" }], desc: "位於安國站1號出口旁邊的熱門麵包店，享用精緻早餐。" },
+          { id: 203, time: "8:30", type: "transport", title: "前往廣藏市場 (鍾路五街)", desc: "3號線-安國站(328) > 鍾路三街(327)轉1號線 > 鍾路五街(131)8號出口。", meta: { from: "안국역", to: "종로5가역 8번 출구" }, tips: ["鍾路五街8號出口靠近廣藏市場入口"] },
+          { id: 204, time: "9:00", type: "food", title: "廣藏市場 (美食探索)", koreanName: "광장시장", address: "광장시장", tags: [{ text: "必吃: 糯米麻花捲 (찹쌀꽈배기)", style: "highlight" }, { text: "必吃: 母女紫菜包飯", style: "highlight" }, { text: "必吃: 富村生拌牛肉 (부촌육회)", style: "highlight" }, { text: "美食: Garlic Boy", style: "info" }, { text: "美食: 元祖鮪魚起司裸飯捲", style: "info" }], desc: "首爾最著名的傳統市場之一，從經典小吃到特色生拌牛肉，一次滿足。" },
+          { id: 205, time: "11:00", type: "shopping", title: "潮牌一條街 (柯達/馬丁金)", koreanName: "코닥 광장마켓점", tags: [], shoppingItems: ["柯達 Kodak (廣場市場店)", "Martin Kim", "kirsh", "satur", "Marithe"], desc: "探索廣藏市場周邊的韓國流行潮牌店。" },
+          { id: 206, time: "12:00", type: "shopping", title: "平和市場 (襪子批發)", koreanName: "평화시장", address: "서울 중구 청계천로 246 平和市場 1층", tags: [{ text: "1F 襪子批發", style: "info" }], shoppingItems: ["269號棉被店", "襪子 (大量採購)"], desc: "位於清溪川旁的服飾與襪子批發市場，適合大量採購。" },
+          { id: 207, time: "13:00", type: "shopping", title: "鍾路友利藥局", koreanName: "종로 우리 약국", address: "鍾路五街 10號出口附近", shoppingItems: ["常備藥品", "健康用品"], desc: "採購藥品或健康用品。" },
+          { id: 208, time: "14:00", type: "transport", title: "返回飯店休息/Check-in", desc: "1號線-鍾路五街(131) > 市廳站(132) 7號出口。", meta: { from: "종로5가역", to: "시청역 7번 출口" }, tips: ["回飯店休息並Check-in (15:00後)"] },
+          { id: 209, time: "15:00", type: "attraction", title: "橡子漫畫 (明洞店)", koreanName: "도토리캐리커쳐", tags: [{ text: "現場買票", style: "info" }], desc: "人氣漫畫肖像畫店，從飯店步行約12分鐘。營業時間：10:00～22:30。" },
+          { id: 210, time: "16:30", type: "shopping", title: "明洞商圈購物", koreanName: "명동 상권", tags: [], shoppingItems: ["美妝/服飾: hetras, Root, Mplayground", "鞋子: ABCMartGS, adidas", "飾品: Nyunyu"], desc: "明洞主要購物區逛街，採購美妝、服飾與飾品。" },
+          { id: 211, time: "19:00", type: "food", title: "明洞晚餐選項 (醬蟹/烤肉)", tags: [{ text: "A. 水刺醬蟹 (수라게장)", style: "info" }, { text: "B. 荒謬的生肉 (엉터리생고기)", style: "info" }, { text: "水刺醬蟹營業：11:00–15:00、17:00–23:00", style: "warning" }], desc: "在明洞選擇享用醬蟹或美味烤肉。" },
+          { id: 212, time: "20:30", type: "bar", title: "Sookhee 酒吧小酌", koreanName: "명동 숙희", tags: [{ text: "營業時間：18:00–01:00", style: "info" }], desc: "明洞周邊的酒吧，享受夜晚時光。" },
+          { id: 213, time: "23:00", type: "transport", title: "返回飯店", desc: "視情況選擇計程車、地鐵或步行返回飯店。", meta: { from: "明洞商圈", to: "相鐵喜普勒集飯店" }, tips: ["彈性調整，注意末班車時間"] },
+          { id: 214, time: "00:00", type: "stay", title: "入住飯店休息", koreanName: "소테츠호텔즈 더 스프라지르 서울 명동", desc: "結束第二天行程。", tips: ["準備迎接Day 3 的行程"] }
+        ]
+      },
+      {
+        day: 3,
+        date: "1月11日 (日)",
+        location: "首爾 • 聖水洞",
+        events: [
+          { id: 301, time: "9:00", type: "transport", title: "前往聖水站", desc: "2號線-市廳站(201) > 聖水站(221) 3號出口。", meta: { from: "시청역", to: "성수역 3번 출구" }, tips: ["車程約 30 分鐘"] },
+          { id: 302, time: "9:30", type: "cafe", title: "Standard Bread (早餐/咖啡)", koreanName: "스탠다드브레드 성수", address: "스탠다드브레드 성수", tags: [{ text: "營業時間：09:00–21:00", style: "info" }], desc: "聖水洞的人氣麵包店，享用早餐和咖啡。" },
+          { id: 303, time: "11:00", type: "shopping", title: "聖水洞商圈購物 (潮牌探索)", koreanName: "성수동 상권", tags: [{ text: "大部分店家 11:00 才開門", style: "warning" }], shoppingItems: ["thisisneverthat", "EQL", "BADBLOOD", "MUSINSA", "Human Made", "29cm.home", "ADER ERROR", "Kith", "POSTES STORE", "Kodak", "BLUE ELEPHANT", "Taag", "STAND OIL", "LOE", "WEST SUARE", "pureda", "LowKey", "Rockfish weatherwear", "Tamburins", "New Mix coffee"], desc: "全天探索聖水洞的時尚、設計師品牌和特色店鋪。" },
+          { id: 304, time: "13:00", type: "food", title: "午餐：本家一隻雞", koreanName: "남다른 본가 닭한마리", address: "남다른 본가 닭한마리", tags: [{ text: "營業時間：12:00–23:00", style: "info" }], desc: "享用美味的韓式一隻雞料理作為午餐。" },
+          { id: 305, time: "19:00", type: "transport", title: "聖水站 -> 纛島站", desc: "2號線-聖水站(221) > 纛島站(220) 2號出口。", meta: { from: "성수역", to: "뚝섬역 2번 출구" } },
+          { id: 306, time: "19:30", type: "food", title: "晚餐：聖一精肉食堂 (烤肉)", koreanName: "성일정육식당", address: "성일정육식당", tags: [{ text: "營業時間：11:30–21:00", style: "warning" }], desc: "在纛島站附近的精肉食堂享用美味烤肉，注意結束營業時間是 21:00。" },
+          { id: 307, time: "21:00", type: "transport", title: "纛島站 -> 市廳站 (回飯店)", desc: "2號線-纛島站(220) > 市廳站(201) 7號出口。", meta: { from: "뚝섬역", to: "시청역 7번 출구" } },
+          { id: 308, time: "21:55", type: "food", title: "宵夜：橋村炸雞 首爾市廳店 (外帶/內用)", koreanName: "교촌치킨 서울시청점", address: "시청역 7號出口", tags: [{ text: "最後點餐時間：21:55", style: "warning" }, { text: "市廳站7號出口附近", style: "info" }], desc: "在回飯店前享用宵夜炸雞。務必在最後點餐時間前到達。" },
+          { id: 309, time: "22:00", type: "stay", title: "飯店休息", koreanName: "소테츠호텔즈 더 스프라지르 서울 명동", desc: "結束第三天充實的聖水洞行程。", tips: ["準備迎接隔日行程"] }
+        ]
+      },
+      {
+        day: 4,
+        date: "1月12日 (一)",
+        location: "首爾 • 弘大/機場",
+        events: [
+          { id: 401, time: "8:00", type: "transport", title: "飯店 -> 首爾站 (計程車)", desc: "從飯店搭計程車到首爾站 (서울역)，預計約 10 分鐘，車資約 4,800 韓元。", meta: { from: "相鐵喜普勒集飯店 (市廳站)", to: "서울역" }, tips: ["預計車程 10 分鐘"] },
+          { id: 402, time: "8:30", type: "stay", title: "T-luggage 行李寄送至機場", koreanName: "T-luggage 서울역", address: "1號線 首爾站 B1F, 1號出口方向", desc: "將大型行李寄送至仁川機場 (T1/T2) 領取。", tags: [{ text: "營業時間：09:00-22:00", style: "warning" }], tips: ["服務 09:00 開始，可能需稍等"] },
+          { id: 403, time: "9:00", type: "transport", title: "機場快線：首爾站 -> 弘大入口站", desc: "搭乘機場快線(A01)至弘大入口站(A03) 9號出口。", meta: { from: "서울역 (A01)", to: "홍대입구역 9번 출구 (A03)" } },
+          { id: 404, time: "9:30", type: "food", title: "Egg Drop 弘大入口店 (早餐)", koreanName: "에그드랍 홍대입구점", address: "에그드랍 홍대입구점", tags: [{ text: "營業時間：08:30-22:00", style: "info" }], desc: "在弘大享用人氣吐司早餐。" },
+          { id: 405, time: "11:00", type: "shopping", title: "弘大商圈最後採購", koreanName: "홍대 상권", address: "弘大入口站 9號出口周邊", tags: [{ text: "備註：店家多 11:00-12:00 營業", style: "warning" }], shoppingItems: ["ABCmart GS", "Folder", "Havehad", "Thisisneverthat", "Covernat", "Wacky WiLLy"], desc: "探索弘大商圈，進行回國前的最後一次購物。" },
+          { id: 406, time: "14:00", type: "food", title: "午餐選項 (豬腳/烤肉)", tags: [{ text: "A. 豬腳小姐 (미쓰족발 홍대본점) 12:30-00:00", style: "info" }, { text: "B. 一片里脊 (일편등심 홍대본점) 12:00-15:00 / 17:00-00:00", style: "info" }], desc: "在弘大選擇一家享用午餐。請注意里脊店有午休時間。" },
+          { id: 407, time: "15:30", type: "transport", title: "弘大 -> 仁川機場 (機場快線)", desc: "機場快線(A03)至仁川國際機場 (A10)。預計 17:00 抵達機場。", meta: { from: "홍대입구역 (A03)", to: "仁川國際機場 (A10)" }, tips: ["確保預留足夠時間辦理登機"] },
+          { id: 408, time: "17:00", type: "stay", title: "仁川機場：領取 T-luggage 行李", koreanName: "한진택배 (HANJIN)", address: "Terminal 2: 3樓 報到櫃檯 H 韓進快遞 (HANJIN)", desc: "抵達機場後，前往韓進快遞櫃檯領取從首爾站寄送的行李，然後辦理登機。", tags: [{ text: "T2 航廈", style: "highlight" }] },
+          { id: 409, time: "19:45", type: "transport", title: "仁川機場 T1 -> 桃園 T2 (CI161)", desc: "CI161 航班，預計 19:45 起飛。請預留時間登機。", meta: { from: "仁川機場 T1", to: "桃園機場 T2" }, tags: [{ text: "已預約 CI161 航班", style: "highlight" }], tips: ["起飛前 2 小時完成報到手續"] }
+        ]
+      }
+    ];
+
+    // ---------- Helper: 類型顏色/Emoji Icon ----------
+    const getTypeColor = (type) => {
+      switch (type) {
+        case 'food': return 'bg-orange-50 text-orange-600 border-orange-100';
+        case 'cafe': return 'bg-stone-50 text-stone-600 border-stone-200';
+        case 'attraction': return 'bg-teal-50 text-teal-700 border-teal-100';
+        case 'transport': return 'bg-gray-50 text-gray-600 border-gray-100';
+        case 'shopping': return 'bg-rose-50 text-rose-600 border-rose-100';
+        case 'stay': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+        case 'bar': return 'bg-purple-50 text-purple-600 border-purple-100';
+        default: return 'bg-gray-50 text-gray-600';
+      }
+    };
+
+    const getTypeEmoji = (type) => {
+      switch (type) {
+        case 'food': return '🍽️';
+        case 'cafe': return '☕';
+        case 'attraction': return '📷';
+        case 'transport': return '🚆';
+        case 'shopping': return '🛍️';
+        case 'stay': return '🛏️';
+        case 'bar': return '🍷';
+        default: return '📍';
+      }
+    };
+
+    // ---------- 打開地圖或搜尋（在手機上會開新分頁/標籤） ----------
+    const openNaverMap = (event) => {
+      let query = '';
+      const isTaxi = /計程車|택시|taxi/i.test(event.title || '');
+      if (event.type === 'transport' && event.meta && event.meta.to && isTaxi) {
+        query = event.meta.to;
+      } else if (event.type === 'transport' && event.meta && event.meta.to) {
+        query = event.meta.to;
+      } else {
+        query = event.koreanName || event.title;
+      }
+      if (query && typeof window !== 'undefined' && window.open) {
+        const url = `https://map.naver.com/v5/search/${encodeURIComponent(query)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    };
+
+    const openGoogleSearch = (event) => {
+      const query = event.koreanName || event.title;
+      if (query && typeof window !== 'undefined' && window.open) {
+        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    };
+
+    // ---------- 購物明細 Modal ----------
+    function ShoppingDetailModal({ isOpen, onClose, event }) {
+      useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        if (isOpen) document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+      }, [isOpen, onClose]);
+
+      if (!isOpen || !event) return null;
+      const items = Array.isArray(event.shoppingItems) ? event.shoppingItems : [];
+
+      return (
+        <div
+          className="fixed inset-0 z-50 bg-gray-900 bg-opacity-90 flex items-start justify-center p-4 sm:p-8"
+          onClick={onClose}
+          role="dialog"
+          aria-modal="true"
+          aria-label="購物明細"
+        >
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto mt-8" onClick={(e)=>e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-6 border-b pb-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center space-x-2">
+                  <Icon emoji="🛍️" />
+                  <span>{event.title} 明細</span>
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">{event.koreanName || event.desc}</p>
+              </div>
+              <button onClick={onClose} className="p-2 -mt-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full" aria-label="Close">
+                <Icon emoji="❌" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800 border-l-4 border-rose-500 pl-3">
+                購物清單 ({items.length} 項)
+              </h3>
+
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                {items.length === 0 && <li className="col-span-full text-sm text-gray-500 p-3 bg-gray-50 rounded-xl">目前沒有購物品項。</li>}
+                {items.map((it, idx) => (
+                  <li key={idx} className="flex items-start p-3 bg-gray-50 rounded-xl">
+                    <span className="text-rose-400 font-bold mr-2 mt-0.5">•</span>
+                    <span className="text-gray-700 leading-tight">{it}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-6 pt-4 border-t">
+              <p className="text-xs text-gray-400">此清單僅供參考，實際店家/品項以現場情況為準。</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- 主 App ----------
+    function App() {
+      const [activeDay, setActiveDay] = useState(0);
+      const [weatherData, setWeatherData] = useState(null);
+      const [loadingWeather, setLoadingWeather] = useState(true);
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [selectedShoppingEvent, setSelectedShoppingEvent] = useState(null);
+
+      const openShoppingDetail = (event) => {
+        setSelectedShoppingEvent(event);
+        setIsModalOpen(true);
+      };
+      const closeShoppingDetail = () => {
+        setIsModalOpen(false);
+        setSelectedShoppingEvent(null);
+      };
+
+      const averageJanuaryWeather = {
+        1: { type: "sunny", temp: "H: 2°C / L: -6°C", desc: "首爾一月平均，極為寒冷且乾燥" },
+        2: { type: "sunny", temp: "H: 3°C / L: -5°C", desc: "首爾一月平均，極為寒冷且乾燥" },
+        3: { type: "sunny", temp: "H: 3°C / L: -5°C", desc: "首爾一月平均，極為寒冷且乾燥" },
+        4: { type: "sunny", temp: "H: 2°C / L: -7°C", desc: "回國日，注意保暖及極度乾燥" }
+      };
+
+      useEffect(() => {
+        let mounted = true;
+        (async () => {
+          setLoadingWeather(true);
+          await new Promise(r => setTimeout(r, 700));
+          if (mounted) {
+            setWeatherData(averageJanuaryWeather);
+            setLoadingWeather(false);
+          }
+        })();
+        return () => { mounted = false; };
+      }, []);
+
+      const currentItinerary = ITINERARY_DATA[activeDay] || ITINERARY_DATA[0];
+      const currentWeather = weatherData ? weatherData[currentItinerary.day] : null;
+
+      return (
+        <div className="min-h-screen flex flex-col text-gray-800">
+          <ShoppingDetailModal isOpen={isModalOpen} onClose={closeShoppingDetail} event={selectedShoppingEvent} />
+
+          <div className="flex-1 overflow-y-auto pb-36">
+            <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 backdrop-blur-md pt-3 pb-3 px-4 sm:px-6">
+              <div className="flex justify-between items-center max-w-xl mx-auto">
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h1 className="text-2xl font-bold tracking-tight">SEOUL</h1>
+                    <div className="flex items-center space-x-1">
+                      <Icon emoji="✈️" />
+                      <span role="img" aria-label="crown">👑</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 uppercase mt-0.5">Birthday Trip 2026</p>
+                </div>
+              </div>
+            </header>
+
+            <main className="px-4 pt-3 max-w-xl mx-auto animate-fade-in-up">
+              {/* Weather Card */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6 flex items-center justify-between relative overflow-hidden">
+                <div className="absolute -right-4 -top-4 w-20 h-20 bg-blue-50/50 rounded-full blur-2xl"></div>
+                <div>
+                  <div className="flex items-center text-gray-400 mb-1 text-xs">
+                    <Icon emoji="📍" size={13} />
+                    <p className="ml-1">{currentItinerary.location}</p>
+                  </div>
+                  <h2 className="text-lg font-bold">{currentItinerary.date}</h2>
+                </div>
+
+                <div className="flex flex-col items-end">
+                  {loadingWeather ? (
+                    <div className="flex flex-col items-end space-y-1.5">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse mb-1"></div>
+                      <div className="w-16 h-4 bg-gray-100 animate-pulse rounded-md"></div>
+                    </div>
+                  ) : currentWeather ? (
+                    <>
+                      <div className="mb-1 text-2xl">
+                        {currentWeather.type === 'sunny' ? <Icon emoji="☀️" size={26} /> : <Icon emoji="🌧️" size={26} />}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold">{currentWeather.temp}</div>
+                        <div className="text-[11px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full mt-1">{currentWeather.desc}</div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-red-500">無法取得天氣資料</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div className="space-y-6 relative pb-8">
+                <div className="absolute left-4 top-6 bottom-0 w-[2px] bg-gray-100/80 rounded-full" />
+                {currentItinerary.events.map((event) => (
+                  <div key={event.id} className="relative pl-12 group">
+                    <div className="absolute left-0 top-0 bg-white border w-10 h-10 rounded-full flex items-center justify-center z-10 shadow text-[11px] font-bold text-gray-600">
+                      {event.time}
+                    </div>
+
+                    <div className="rounded-2xl shadow border border-gray-50 overflow-hidden bg-white">
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1 pr-2">
+                            <div className={`inline-flex items-center space-x-2 px-2.5 py-1 rounded-full text-[11px] font-bold mb-2 ${getTypeColor(event.type)}`}>
+                              <Icon emoji={getTypeEmoji(event.type)} />
+                              <span className="uppercase">{event.type}</span>
+                            </div>
+                            <h3 className="text-[16px] font-bold">{event.title}</h3>
+                            {event.koreanName && <p className="text-[12px] text-gray-400 mt-0.5">{event.koreanName}</p>}
+                          </div>
+
+                          <div className="flex space-x-2 flex-shrink-0 pt-1">
+                            {/* Naver Map button */}
+                            {(event.koreanName || event.title || event.type === 'transport') && (
+                              <button
+                                onClick={() => openNaverMap(event)}
+                                className="w-9 h-9 bg-[#03C75A] text-white rounded-xl flex items-center justify-center shadow"
+                                aria-label="Naver Map"
+                              >
+                                <Icon emoji="🧭" />
+                              </button>
+                            )}
+
+                            {/* Google Search */}
+                            {(event.type === 'food' || event.type === 'bar' || event.type === 'cafe') && (
+                              <button onClick={() => openGoogleSearch(event)} className="w-9 h-9 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow" aria-label="Google Search">
+                                <Icon emoji="🔍" />
+                              </button>
+                            )}
+
+                            {/* Shopping details */}
+                            {event.type === 'shopping' && event.shoppingItems && event.shoppingItems.length > 0 && (
+                              <button onClick={() => { openShoppingDetail(event); }} className="w-9 h-9 bg-rose-500 text-white rounded-xl flex items-center justify-center shadow" aria-label="購物明細">
+                                <Icon emoji="📋" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* meta / route */}
+                        <div className="space-y-3">
+                          {event.type === 'transport' && event.meta && (
+                            <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-3.5 text-xs font-bold text-gray-600 border">
+                              <span>{event.meta.from}</span>
+                              <div className="flex-1 border-t-2 border-dotted border-gray-300 mx-3 h-0" />
+                              <span>{event.meta.to}</span>
+                            </div>
+                          )}
+
+                          <p className="text-[13px] text-gray-600 leading-relaxed">{event.desc}</p>
+
+                          {(event.tags || event.tips) && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {event.tags && event.tags.map((tag, idx) => {
+                                let badgeClass = "bg-gray-50 text-gray-500 border-gray-100";
+                                if (tag.style === 'highlight') badgeClass = "bg-rose-50 text-rose-600 font-bold border-rose-100";
+                                if (tag.style === 'warning') badgeClass = "bg-amber-50 text-amber-600 border-amber-100 font-medium";
+                                if (tag.style === 'info') badgeClass = "bg-blue-50 text-blue-600 font-medium border-blue-100";
+                                return <span key={idx} className={`px-3 py-1.5 rounded-xl text-[11px] border ${badgeClass}`}>{tag.text}</span>;
+                              })}
+                              {event.tips && event.tips.map((tip, idx) => (
+                                <span key={'tip'+idx} className="px-3 py-1.5 rounded-xl text-[11px] bg-yellow-50 text-yellow-700 flex items-center border border-yellow-100 font-medium">
+                                  <Icon emoji="ℹ️" size={12} className="mr-1" />
+                                  {tip}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="h-8 flex items-end justify-center">
+                  <span className="text-[10px] text-gray-300 tracking-[0.2em] font-medium uppercase">End of Day {currentItinerary.day}</span>
+                </div>
+              </div>
+            </main>
+          </div>
+
+          {/* Bottom day selector */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 safe-bottom">
+            <div className="px-4 pb-4 sm:px-6 sm:pb-6 bg-gradient-to-t from-white via-white to-transparent pt-4">
+              <div className="flex space-x-2 overflow-x-auto no-scrollbar justify-start sm:justify-center max-w-xl mx-auto">
+                {ITINERARY_DATA.map((dayData, idx) => (
+                  <button key={idx} onClick={() => setActiveDay(idx)} aria-pressed={activeDay===idx}
+                    className={`flex-shrink-0 px-6 py-3 rounded-full text-sm font-bold transition duration-200 border shadow-xl
+                      ${activeDay===idx ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}>
+                    {dayData.date}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- render ----------
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+    </script>
+  </body>
+</html>
