@@ -39,7 +39,7 @@
 
     <!-- App code (JSX) -->
     <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
     // ---------- 小圖示：為了瀏覽器直接使用，改用 Emoji（輕量、跨平台） ----------
     const Icon = ({ emoji, size = 18, className = "" }) => (
@@ -234,6 +234,7 @@
     // ---------- 主 App ----------
     function App() {
       const [activeDay, setActiveDay] = useState(0);
+      const scrollRef = useRef(null);
       const [weatherData, setWeatherData] = useState(null);
       const [loadingWeather, setLoadingWeather] = useState(true);
       const [isModalOpen, setIsModalOpen] = useState(false);
@@ -275,7 +276,7 @@
         <div className="min-h-screen flex flex-col text-gray-800">
           <ShoppingDetailModal isOpen={isModalOpen} onClose={closeShoppingDetail} event={selectedShoppingEvent} />
 
-          <div className="flex-1 overflow-y-auto pb-36">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto pb-36">
             <header className="sticky top-0 z-40 bg-[#FAFAFA]/95 backdrop-blur-md pt-3 pb-3 px-4 sm:px-6">
               <div className="flex justify-between items-center max-w-xl mx-auto">
                 <div>
@@ -421,7 +422,11 @@
             <div className="px-4 pb-4 sm:px-6 sm:pb-6 bg-gradient-to-t from-white via-white to-transparent pt-4">
               <div className="flex space-x-2 overflow-x-auto no-scrollbar justify-start sm:justify-center max-w-xl mx-auto">
                 {ITINERARY_DATA.map((dayData, idx) => (
-                  <button key={idx} onClick={() => setActiveDay(idx)} aria-pressed={activeDay===idx}
+                  <button key={idx} onClick={() => {
+                    // switch day and scroll the main content container to top
+                    setActiveDay(idx);
+                    if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                  }} aria-pressed={activeDay===idx}
                     className={`flex-shrink-0 px-6 py-3 rounded-full text-sm font-bold transition duration-200 border shadow-xl
                       ${activeDay===idx ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}>
                     {dayData.date}
