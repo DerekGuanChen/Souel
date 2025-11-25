@@ -146,8 +146,18 @@
         case 'stay': return '🛏️';
         case 'bar': return '🍷';
         default: return '📍';
-      }
-    };
+        }
+      };
+
+      // ---------- Helper: Event image selection ----------
+      // If an event has `image` (absolute url or relative path) we'll use it.
+      // Otherwise we fallback to an Unsplash search image using the title / koreanName
+      const getEventImage = (event) => {
+        if (!event) return '';
+        if (event.image) return event.image;
+        const query = encodeURIComponent(event.koreanName || event.title || event.type || 'seoul');
+        return `https://source.unsplash.com/800x450/?${query}`;
+      };
 
     // ---------- 打開地圖或搜尋（在手機上會開新分頁/標籤） ----------
     const openNaverMap = (event) => {
@@ -194,6 +204,10 @@
           aria-label="購物明細"
         >
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto mt-8" onClick={(e)=>e.stopPropagation()}>
+            {/* modal header image */}
+            <div className="w-full rounded-lg overflow-hidden mb-4 bg-gray-100">
+              <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-36 object-cover" />
+            </div>
             <div className="flex justify-between items-start mb-6 border-b pb-4">
               <div>
                 <h2 className="text-xl font-bold flex items-center space-x-2">
@@ -336,6 +350,10 @@
                     </div>
 
                     <div className="rounded-2xl shadow border border-gray-50 overflow-hidden bg-white">
+                      {/* event artwork */}
+                      <div className="w-full h-40 bg-gray-100 overflow-hidden">
+                        <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-full object-cover" />
+                      </div>
                       <div className="p-4">
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex-1 pr-2">
