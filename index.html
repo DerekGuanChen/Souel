@@ -122,6 +122,13 @@
       }
     ];
 
+    // Ensure every event has an explicit .image property (local per-type fallback)
+    ITINERARY_DATA.forEach(day => {
+      day.events.forEach(ev => {
+        if (!ev.image) ev.image = `./assets/img/${(ev.type || 'default').toLowerCase()}.svg`;
+      });
+    });
+
     // ---------- Helper: 類型顏色/Emoji Icon ----------
     const getTypeColor = (type) => {
       switch (type) {
