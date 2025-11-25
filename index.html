@@ -154,7 +154,25 @@
       // Otherwise we fallback to an Unsplash search image using the title / koreanName
       const getEventImage = (event) => {
         if (!event) return '';
+        // prefer explicit image field
         if (event.image) return event.image;
+
+        // local per-type fallbacks (guaranteed to exist in /assets/img)
+        const type = (event.type || 'default').toLowerCase();
+        const localMap = {
+          food: './assets/img/food.svg',
+          cafe: './assets/img/cafe.svg',
+          attraction: './assets/img/attraction.svg',
+          transport: './assets/img/transport.svg',
+          shopping: './assets/img/shopping.svg',
+          stay: './assets/img/stay.svg',
+          bar: './assets/img/bar.svg',
+          default: './assets/img/default.svg'
+        };
+
+        if (localMap[type]) return localMap[type];
+
+        // as a last resort, remote Unsplash search (shouldn't be reached)
         const query = encodeURIComponent(event.koreanName || event.title || event.type || 'seoul');
         return `https://source.unsplash.com/800x450/?${query}`;
       };
