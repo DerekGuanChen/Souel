@@ -40,8 +40,9 @@
       .event-image img, .event-image picture { display: block; width: 100%; height: 100%; object-fit: cover; }
       .event-image::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(251, 233, 231, 0.28), rgba(255, 238, 230, 0.32)); mix-blend-mode: overlay; pointer-events: none; }
       .event-image .image-tint { position:absolute; inset:0; background:linear-gradient(180deg, rgba(255,238,230,0.18), rgba(255,237,230,0.2)); pointer-events:none; }
-      .event-image img { filter: contrast(1.02) saturate(0.95) brightness(0.98); transform-origin:center; transition: transform 200ms ease; }
-      .event-image:hover img { transform: scale(1.03); }
+      .event-image img { opacity: 0; filter: contrast(1.02) saturate(0.95) brightness(0.98); transform-origin:center; transition: transform 300ms ease, opacity 320ms ease; transform: scale(1.03); }
+      .event-image img.loaded { opacity: 1; transform: scale(1); }
+      .event-image:hover img { transform: scale(1.05); }
       /* small Korean badge on images */
       .k-badge { position:absolute; left:10px; top:10px; background: rgba(255,255,255,0.75); color:#1f2937; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,0.6); }
       /* small Korean header / subtitle */
@@ -139,10 +140,34 @@
     ];
 
     // Assign a real photo per event if available (assets/img/event-<id>.jpg)
-    // This overrides earlier per-type icons so each event uses a unique picture.
+    // and override for selected key events to use landmark photos.
+    const LANDMARKS = {
+      101: './assets/img/landmark-101.jpg', // Incheon Airport
+      204: './assets/img/landmark-204.jpg', // Gwangjang Market
+      211: './assets/img/landmark-211.jpg', // Myeongdong night
+      302: './assets/img/landmark-302.jpg', // Seongsu-dong
+      405: './assets/img/landmark-405.jpg', // Hongdae street
+      407: './assets/img/landmark-407.jpg'  // Namsan Tower
+    };
+
+    // small blurred LQIP placeholders (base64) for chosen landmarks
+    const LQIP = {
+      101: `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABcQERQRDhcUEhQaGBcbIjklIh8fIkYyNSk5UkhXVVFIUE5bZoNvW2F8Yk5QcptzfIeLkpSSWG2grJ+OqoOPko3/2wBDARgaGiIeIkMlJUONXlBejY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3/wAARCAAZACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwChZat++jV8YPU1cuNeaKQpCAcHrXMKcGpB1yaXs1e4ObtY6NfEs24EqMUx/Ecpc5UbTWFuprNT5IkqTNR9dcpjbk+tFYpoo5UVdjghpwRz0BpV61ZirSxm5WK4ikz0NI0TA81eNVpaQuYrlB60UpoosWf/2Q==`,
+      204: `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABcQERQRDhcUEhQaGBcbIjklIh8fIkYyNSk5UkhXVVFIUE5bZoNvW2F8Yk5QcptzfIeLkpSSWG2grJ+OqoOPko3/2wBDARgaGiIeIkMlJUONXlBejY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3/wAARCAAZACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwBBbD++KUWcxHEZrR3tj/j2x+FPUT44kUe1YKrJbnT7OKKEdhI5O75frTzprAH51q0wGf38mfTbSH7P2difrT9qxeyTKBtP9sUVohzji3z+FFL2kh+zj2/EbtnxzMuKYPs38UjZ780ztUFc8HzHRGPmW1aNT+5QyeuacZHx/wAe+PfFJYfearj/AHD9K1sYzlyytYq4nx/rVFFQnrRXP7TyNOU//9k=`,
+      211: `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABcQERQRDhcUEhQaGBcbIjklIh8fIkYyNSk5UkhXVVFIUE5bZoNvW2F8Yk5QcptzfIeLkpSSWG2grJ+OqoOPko3/2wBDARgaGiIeIkMlJUONXlBejY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3/wAARCAAZACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDCSngUwcinCoYEgFJjvTl6UEVIyu4zRUjjNFWmAwGnr0qGpk6UmIU5BpQcikfpSL92kMHopG6UVSA//9k=`,
+      302: `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABcQERQRDhcUEhQaGBcbIjklIh8fIkYyNSk5UkhXVVFIUE5bZoNvW2F8Yk5QcptzfIeLkpSSWG2grJ+OqoOPko3/2wBDARgaGiIeIkMlJUONXlBejY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3/wAARCAAZACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDnu9PVc01cE1cjt/kLZFW5JHNKSjuLBCWxVgRbGye1QrNs6UvmFzyaLmHvyfkPJyaKFop3N1GyMbJXvTxMwHWon60CoNrJk4kb61MkxXqKgj6Cg9aZHUnNxI/3TiimJRTJcmf/2Q==`,
+      405: `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABcQERQRDhcUEhQaGBcbIjklIh8fIkYyNSk5UkhXVVFIUE5bZoNvW2F8Yk5QcptzfIeLkpSSWG2grJ+OqoOPko3/2wBDARgaGiIeIkMlJUONXlBejY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3/wAARCAAZACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDFhk2k9qf5m6QswyDUCkAGnx84JOKZJYLM6jI4A4qYXLeWkZA4HWq+7GSDnimuThaLgWxcldg44orPLkkUU7iIQT0qRajSpF60mBKppJSeCKTvQ/3KRTIiDjNFO/gopiP/2Q==`,
+      407: `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABcQERQRDhcUEhQaGBcbIjklIh8fIkYyNSk5UkhXVVFIUE5bZoNvW2F8Yk5QcptzfIeLkpSSWG2grJ+OqoOPko3/2wBDARgaGiIeIkMlJUONXlBejY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY3/wAARCAAZACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwCpC3ljZ196guj8/tTo2MijaNtQbj5hDjjNNEWZatiCAFNJceWwZicMKNoEe5ODVby2kYgc+tBKWtyzCQ0fy0VC4kt4waKA5X0LAQhCEXBFVnicfP15q+/3Pwqu/wDqD9aFuPmIRcgDaetTQlcfKRk1nt/rDVi0+/QwaLF0w8oA/eFFM1D/AFo+lFNMaWh//9k=`
+    };
+
     ITINERARY_DATA.forEach(day => {
       day.events.forEach(ev => {
+        // default event image (existing per-event photos)
         ev.image = `./assets/img/event-${ev.id}.jpg`;
+        // override with landmark photo for chosen ids
+        if (LANDMARKS[ev.id]) ev.image = LANDMARKS[ev.id];
+        // attach lqip if available
+        if (LQIP[ev.id]) ev.lqip = LQIP[ev.id];
       });
     });
 
@@ -261,10 +286,10 @@
         >
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto mt-8" onClick={(e)=>e.stopPropagation()}>
             {/* modal header image */}
-            <div className="w-full rounded-lg overflow-hidden mb-4 bg-gray-100 event-image" style={{height:144}}>
+            <div className="w-full rounded-lg overflow-hidden mb-4 bg-gray-100 event-image" style={{height:144, backgroundSize: 'cover', backgroundPosition:'center', backgroundImage: `url(${event.lqip || getEventImage(event)})`}}>
               <picture>
                 <source srcSet={getEventImageWebp(event)} type="image/webp" />
-                <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-36 object-cover" />
+                <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-36 object-cover" onLoad={(e)=>e.currentTarget.classList.add('loaded')} />
               </picture>
               <div className="k-badge">서울 • {typeLabelKR(event.type)}</div>
             </div>
@@ -414,10 +439,10 @@
 
                     <div className="rounded-2xl shadow border border-gray-50 overflow-hidden bg-white">
                       {/* event artwork */}
-                      <div className="w-full h-40 bg-gray-100 overflow-hidden event-image">
+                      <div className="w-full h-40 bg-gray-100 overflow-hidden event-image" style={{backgroundSize:'cover', backgroundPosition:'center', backgroundImage: `url(${event.lqip || getEventImage(event)})`}}>
                         <picture>
                           <source srcSet={getEventImageWebp(event)} type="image/webp" />
-                          <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-full object-cover" />
+                          <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-full object-cover" onLoad={(e)=>e.currentTarget.classList.add('loaded')} />
                         </picture>
                         <div className="k-badge">서울 • {typeLabelKR(event.type)}</div>
                       </div>
