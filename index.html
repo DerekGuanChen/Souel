@@ -14,6 +14,8 @@
 
     <!-- Babel (在瀏覽器編譯 JSX，開發/示範用) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Noto Sans KR for better Korean rendering -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
 
     <style>
       /* 小幅 style 調整讓手機瀏覽更友善 */
@@ -21,6 +23,9 @@
         height: 100%;
         background: #FAFAFA;
       }
+
+      /* Use Noto Sans KR as a primary UI font for better Korean look */
+      body { font-family: 'Noto Sans KR', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
       /* 隱藏滾動條 */
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -30,6 +35,17 @@
         to { opacity: 1; transform: translate3d(0, 0, 0); }
       }
       .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(.16,1,.3,1) both; }
+      /* Image artwork overlay + unified color tone (warm coral) */
+      .event-image { position: relative; overflow: hidden; }
+      .event-image img, .event-image picture { display: block; width: 100%; height: 100%; object-fit: cover; }
+      .event-image::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(251, 233, 231, 0.28), rgba(255, 238, 230, 0.32)); mix-blend-mode: overlay; pointer-events: none; }
+      .event-image .image-tint { position:absolute; inset:0; background:linear-gradient(180deg, rgba(255,238,230,0.18), rgba(255,237,230,0.2)); pointer-events:none; }
+      .event-image img { filter: contrast(1.02) saturate(0.95) brightness(0.98); transform-origin:center; transition: transform 200ms ease; }
+      .event-image:hover img { transform: scale(1.03); }
+      /* small Korean badge on images */
+      .k-badge { position:absolute; left:10px; top:10px; background: rgba(255,255,255,0.75); color:#1f2937; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; backdrop-filter: blur(6px); border:1px solid rgba(255,255,255,0.6); }
+      /* small Korean header / subtitle */
+      .kr-sub { font-family: 'Noto Sans KR', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; font-weight:600; letter-spacing:0.02em; }
       /* 讓底部按鈕區在 iOS Safari 時不被 home indicator 遮擋 */
       .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
     </style>
@@ -157,6 +173,11 @@
         }
       };
 
+      const typeLabelKR = (type) => {
+        const map = { food:'음식', cafe:'카페', attraction:'명소', transport:'교통', shopping:'쇼핑', stay:'숙박', bar:'바' };
+        return map[(type||'').toLowerCase()] || '서울';
+      };
+
       // ---------- Helper: Event image selection ----------
       // If an event has `image` (absolute url or relative path) we'll use it.
       // Otherwise we fallback to an Unsplash search image using the title / koreanName
@@ -183,6 +204,15 @@
         // as a last resort, remote Unsplash search (shouldn't be reached)
         const query = encodeURIComponent(event.koreanName || event.title || event.type || 'seoul');
         return `https://source.unsplash.com/800x450/?${query}`;
+      };
+
+      const getEventImageWebp = (event) => {
+        if (!event) return '';
+        const src = event.image || getEventImage(event);
+        if (!src) return '';
+        if (src.endsWith('.webp')) return src;
+        if (/\.(jpe?g|png)$/i.test(src)) return src.replace(/\.(jpe?g|png)$/i, '.webp');
+        return src; // svg or other
       };
 
     // ---------- 打開地圖或搜尋（在手機上會開新分頁/標籤） ----------
@@ -231,8 +261,12 @@
         >
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto mt-8" onClick={(e)=>e.stopPropagation()}>
             {/* modal header image */}
-            <div className="w-full rounded-lg overflow-hidden mb-4 bg-gray-100">
-              <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-36 object-cover" />
+            <div className="w-full rounded-lg overflow-hidden mb-4 bg-gray-100 event-image" style={{height:144}}>
+              <picture>
+                <source srcSet={getEventImageWebp(event)} type="image/webp" />
+                <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-36 object-cover" />
+              </picture>
+              <div className="k-badge">서울 • {typeLabelKR(event.type)}</div>
             </div>
             <div className="flex justify-between items-start mb-6 border-b pb-4">
               <div>
@@ -321,13 +355,16 @@
               <div className="flex justify-between items-center max-w-xl mx-auto">
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h1 className="text-2xl font-bold tracking-tight">SEOUL</h1>
+                    <h1 className="text-2xl font-bold tracking-tight flex items-baseline space-x-2">
+                      <span>SEOUL</span>
+                      <span className="text-sm text-gray-400 kr-sub">서울</span>
+                    </h1>
                     <div className="flex items-center space-x-1">
                       <Icon emoji="✈️" />
                       <span role="img" aria-label="crown">👑</span>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-400 uppercase mt-0.5">Birthday Trip 2026</p>
+                  <p className="text-xs text-gray-400 uppercase mt-0.5">Birthday Trip 2026 — <span className="kr-sub">서울 여행 일정</span></p>
                 </div>
               </div>
             </header>
@@ -377,8 +414,12 @@
 
                     <div className="rounded-2xl shadow border border-gray-50 overflow-hidden bg-white">
                       {/* event artwork */}
-                      <div className="w-full h-40 bg-gray-100 overflow-hidden">
-                        <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-full object-cover" />
+                      <div className="w-full h-40 bg-gray-100 overflow-hidden event-image">
+                        <picture>
+                          <source srcSet={getEventImageWebp(event)} type="image/webp" />
+                          <img loading="lazy" src={getEventImage(event)} alt={event.title} className="w-full h-full object-cover" />
+                        </picture>
+                        <div className="k-badge">서울 • {typeLabelKR(event.type)}</div>
                       </div>
                       <div className="p-4">
                         <div className="flex justify-between items-start mb-3">
@@ -473,7 +514,10 @@
                   }} aria-pressed={activeDay===idx}
                     className={`flex-shrink-0 px-6 py-3 rounded-full text-sm font-bold transition duration-200 border shadow-xl
                       ${activeDay===idx ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-100 hover:border-gray-200'}`}>
-                    {dayData.date}
+                    <div className="flex flex-col items-center">
+                      <span>{dayData.date}</span>
+                      <small className="text-[10px] text-gray-300 mt-0.5 kr-sub">일차</small>
+                    </div>
                   </button>
                 ))}
               </div>
